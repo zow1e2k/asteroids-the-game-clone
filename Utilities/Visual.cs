@@ -7,6 +7,10 @@ namespace asteroids_the_game_clone.Utilities {
             return RotateImage(image, new PointF((float)image.Width / 2, (float)image.Height / 2), angle);
         }
 
+		public static Bitmap RotateImage(Image image, int angle) {
+			return RotateImage(image, new PointF((float)image.Width / 2, (float)image.Height / 2), (float)angle);
+		}
+
 		public static Bitmap RotateImage(Image image, PointF offset, float angle) {
 			if (image == null) {
 				throw new ArgumentNullException("image");
