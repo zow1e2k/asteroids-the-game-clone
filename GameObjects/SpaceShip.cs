@@ -2,13 +2,14 @@
 using System;
 
 namespace asteroids_the_game_clone.GameObjects {
-    public class SpaceShip {
+    public class SpaceShip : Interfaces.IDynamicable {
 		public const float ROTATION_DEGREE = 3.0f;
 
 		private String name;
 		private short velocity;
 		private float rotation;
 		private Vec2D position;
+		private int ammo;
 
 		public SpaceShip(String name, Vec2D position) {
 			this.name = name;
@@ -65,5 +66,9 @@ namespace asteroids_the_game_clone.GameObjects {
 		public void rotateLeft() => this.rotate(-ROTATION_DEGREE);
 
 		public void rotate(float angle) => this.rotation += angle;
+		public void setAmmo(int ammo) => this.ammo = ammo;
+		public int getAmmo() => this.ammo;
+		public void addAmmo(int ammo) => this.ammo += ammo;
+		public void shoot() => this.ammo--;
 	}
 }
