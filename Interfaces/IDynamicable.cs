@@ -15,5 +15,6 @@ namespace asteroids_the_game_clone.Interfaces {
         void rotateRight();
         void rotateLeft();
         void rotate(float angle);
+        void moveForwardWithRotation();
     }
 }
