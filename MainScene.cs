@@ -78,6 +78,12 @@ namespace asteroids_the_game_clone {
 									kvp.Key.getPosition().getX(),
 									kvp.Key.getPosition().getY()
 								);
+								Console.WriteLine(
+									"position | x = "
+									+ kvp.Key.getPosition().getX()
+									+ " y = "
+									+ kvp.Key.getPosition().getY()
+								);
 							}
 						));
 					} else {
@@ -95,25 +101,27 @@ namespace asteroids_the_game_clone {
 
 		private void OnPlayerKeyStateChange() {
 			while (true) {
-				mutexObj.WaitOne();
-				if (ship == null || player == null || shipPicture == null) {
+				this.mutexObj.WaitOne();
+				if (this.ship == null || this.player == null || this.shipPicture == null) {
 					continue;
 				}
 
-				if (player.isButtonPressed(Keys.Space)) {
-					ship.shoot();
+				short shipRotation = this.ship.getRotation();
+				int
+					shipX = this.ship.getPosition().getX(),
+					shipY = this.ship.getPosition().getY();
+
+				if (this.player.isButtonPressed(Keys.Space)) {
+					this.ship.shoot();
 
 					GameObject bullet = new GameObject(
-						ship.getPosition(),
-						ship.getRotation(),
+						new Vec2D(shipX, shipY),
+						shipRotation,
 						5
 					);
                     PictureBox bulletPicture = new PictureBox {
                         Image = (Image)(resources.GetObject("bulletPicture.Image")),
-                        Location = new Point(
-							ship.getPosition().getX(),
-							ship.getPosition().getY()
-						),
+                        Location = new Point(shipX, shipY),
                         Size = new Size(28, 27),
                         Visible = true,
 						Name = "bulletPicture"
@@ -124,50 +132,73 @@ namespace asteroids_the_game_clone {
 							this.Controls.Add(bulletPicture);
                         }
 					));
-                    gameObjectsList.Add(bullet, bulletPicture);
+                    this.gameObjectsList.Add(bullet, bulletPicture);
 
-					rotatePic.Invoke(
+					this.rotatePic.Invoke(
 						ref bulletPicture,
 						(float)bullet.getRotation(),
 						false
 					);
 				}
 
-				if (player.isButtonPressed(Keys.Up)) {
-					if (player.isButtonPressed(Keys.Right)) {
-						ship.rotateRight();
+				if (this.player.isButtonPressed(Keys.Up)) {
+					if (this.player.isButtonPressed(Keys.Right)) {
+						this.ship.rotateRight();
 
-						rotatePic.Invoke(
+						this.rotatePic.Invoke(
 							ref this.shipPicture,
-							(float)ship.getRotation() + SpaceShip.ROTATION_DEGREE,
+							(float)shipRotation + SpaceShip.ROTATION_DEGREE,
 							false
 						);
-					} else if (player.isButtonPressed(Keys.Left)) {
-						ship.rotateLeft();
+					} else if (this.player.isButtonPressed(Keys.Left)) {
+						this.ship.rotateLeft();
 
-						rotatePic.Invoke(
+						this.rotatePic.Invoke(
 							ref this.shipPicture,
-							-((float)ship.getRotation() + SpaceShip.ROTATION_DEGREE),
+							-((float)shipRotation + SpaceShip.ROTATION_DEGREE),
 							true
 						);
 					}
 
-					ship.moveForwardWithRotation();
-				} else if (player.isButtonPressed(Keys.Left)) {
-					ship.rotateLeft();
+					this.ship.moveForwardWithRotation();
+				} else if (this.player.isButtonPressed(Keys.Left)) {
+					this.ship.rotateLeft();
 
-					rotatePic.Invoke(
+					this.rotatePic.Invoke(
 						ref this.shipPicture,
-						-((float)ship.getRotation() + SpaceShip.ROTATION_DEGREE),
+						-((float)shipRotation + SpaceShip.ROTATION_DEGREE),
 						true
 					);
-				} else if (player.isButtonPressed(Keys.Right)) {
-					ship.rotateRight();
+				} else if (this.player.isButtonPressed(Keys.Right)) {
+					this.ship.rotateRight();
 
-					rotatePic.Invoke(
+					this.rotatePic.Invoke(
 						ref this.shipPicture,
-						(float)ship.getRotation() + SpaceShip.ROTATION_DEGREE,
+						(float)shipRotation + SpaceShip.ROTATION_DEGREE,
 						false
+					);
+				}
+
+				shipX = this.ship.getPosition().getX();
+				shipY = this.ship.getPosition().getY();
+
+				if (shipY > this.Size.Height - this.shipPicture.Size.Height) {
+					this.ship.setPosition(
+						new Vec2D(shipX, 0 + this.shipPicture.Size.Height)
+					);
+				} else if (shipY < 0 + this.shipPicture.Size.Height) {
+					this.ship.setPosition(
+						new Vec2D(shipX, this.Size.Height - this.shipPicture.Size.Height)
+					);
+				}
+
+				if (shipX > this.Size.Width - this.shipPicture.Size.Height) {
+					this.ship.setPosition(
+						new Vec2D(0 + this.shipPicture.Size.Height, shipY)
+					);
+				} else if (shipX < 0 + this.shipPicture.Size.Height) {
+					this.ship.setPosition(
+						new Vec2D(this.Size.Width - this.shipPicture.Size.Height, shipY)
 					);
 				}
 
