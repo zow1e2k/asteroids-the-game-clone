@@ -55,6 +55,8 @@
         }
 
         #endregion
+
+        private System.Windows.Forms.PictureBox bulletPicture;
     }
 }
 

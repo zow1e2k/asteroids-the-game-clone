@@ -16,7 +16,8 @@ namespace asteroids_the_game_clone {
 
 		private SpaceShip ship = null;
 		//private List<GameObject> bullets = new List<GameObject>();
-		private Dictionary<GameObject, PictureBox> gameObjectsList = new Dictionary<GameObject, PictureBox>();
+		private Dictionary<GameObject, PictureBox> gameObjectsMap = new Dictionary<GameObject, PictureBox>();
+		private List<GameObject> deletedObjList = new List<GameObject>();
 		//private SortedList<GameObject, PictureBox> bullets = new SortedList<GameObject, PictureBox>();
 
 		private PictureBox shipPicture = null;
@@ -57,7 +58,7 @@ namespace asteroids_the_game_clone {
 			onEnvirontmentUpdate.Start();
 
 			InitializeComponent();
-			gameObjectsList.Add(ship, shipPicture);
+			gameObjectsMap.Add(ship, shipPicture);
 		}
 
         private void SceneLoad(object sender, EventArgs e) { }
@@ -66,34 +67,74 @@ namespace asteroids_the_game_clone {
 			while (true) {
 				mutexObj.WaitOne();
 
-				foreach (KeyValuePair<GameObject, PictureBox> kvp in gameObjectsList) {
-					if (InvokeRequired) {
-						kvp.Value.Invoke(
-							new Action(() => {
-								if (!kvp.Key.Equals(this.ship)) {
-									kvp.Key.moveForwardWithRotation();
-                                }
+				GameObject obj;
+				PictureBox pic;
+				int objectX, objectY;
 
-								kvp.Value.Location = new Point(
-									kvp.Key.getPosition().getX(),
-									kvp.Key.getPosition().getY()
-								);
-								Console.WriteLine(
-									"position | x = "
-									+ kvp.Key.getPosition().getX()
-									+ " y = "
-									+ kvp.Key.getPosition().getY()
-								);
+				foreach (KeyValuePair<GameObject, PictureBox> kvp in this.gameObjectsMap) {
+					obj = kvp.Key;
+					pic = kvp.Value;
+
+					objectX = obj.getPosition().getX();
+					objectY = obj.getPosition().getY();
+
+					pic.Invoke(
+						new Action(() => {
+							if (!obj.Equals(this.ship)) {
+								obj.moveForwardWithRotation();
+                            }
+
+							if (objectY > this.Size.Height - pic.Size.Height) {
+								if (obj.Equals(this.ship)) {
+									obj.setPosition(
+										new Vec2D(objectX, 0 + pic.Size.Height)
+									);
+								} else {
+									this.deletedObjList.Add(obj);
+                                }
+							} else if (objectY < 0 + pic.Size.Height) {
+								if (obj.Equals(this.ship)) {
+									obj.setPosition(
+										new Vec2D(objectX, this.Size.Height - pic.Size.Height)
+									);
+								} else {
+									this.deletedObjList.Add(obj);
+                                }
 							}
-						));
-					} else {
-						kvp.Value.Location = new Point(
-							kvp.Key.getPosition().getX(),
-							kvp.Key.getPosition().getY()
-						);
-                    }
+
+							if (objectX > this.Size.Width - pic.Size.Height) {
+								if (obj.Equals(this.ship)) {
+									obj.setPosition(
+										new Vec2D(0 + pic.Size.Height, objectY)
+									);
+								} else {
+									this.deletedObjList.Add(obj);
+                                }
+							} else if (objectX < 0 + pic.Size.Height) {
+								if (obj.Equals(this.ship)) {
+									obj.setPosition(
+										new Vec2D(this.Size.Width - pic.Size.Height, objectY)
+									);
+								} else {
+									this.deletedObjList.Add(obj);
+                                }
+							}
+
+							pic.Location = new Point(
+								obj.getPosition().getX(),
+								obj.getPosition().getY()
+							);
+						}
+					));
 				}
 
+				foreach (GameObject gameObject in this.deletedObjList) {
+					this.gameObjectsMap.TryGetValue(gameObject, out pic);
+					this.gameObjectsMap.Remove(gameObject);
+					pic.Invoke(new Action(() => { pic.Dispose(); }));
+				}
+
+				this.deletedObjList.Clear();
 				Thread.Sleep(10);
 				mutexObj.ReleaseMutex();
 			}
@@ -132,7 +173,7 @@ namespace asteroids_the_game_clone {
 							this.Controls.Add(bulletPicture);
                         }
 					));
-                    this.gameObjectsList.Add(bullet, bulletPicture);
+                    this.gameObjectsMap.Add(bullet, bulletPicture);
 
 					this.rotatePic.Invoke(
 						ref bulletPicture,
