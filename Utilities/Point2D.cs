@@ -1,19 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace asteroids_the_game_clone.Utilities {
-    public class Vec2D {
+    public class Point2D {
         private const sbyte MAX_VECTOR_DIRECTIONS = 2;
         private int x, y;
-        public Vec2D(int x, int y) {
+        public Point2D(int x, int y) {
             this.x = x;
             this.y = y;
         }
 
-        public Vec2D(int[] arr) {
+        public Point2D(int[] arr) {
             if (arr.Length == 0 || arr.Length > MAX_VECTOR_DIRECTIONS) {
                 return;
             }
@@ -37,5 +34,12 @@ namespace asteroids_the_game_clone.Utilities {
         public int getX() => this.x;
 
         public int getY() => this.y;
+
+        public static double getDistance(Point2D p1, Point2D p2) {
+            double ac = p2.x - p1.x;
+            double bc = p2.y - p1.y;
+
+            return Math.Sqrt(Math.Pow(ac, 2) + Math.Pow(bc, 2));
+        }
     }
 }

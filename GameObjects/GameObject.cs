@@ -1,48 +1,49 @@
 ﻿using asteroids_the_game_clone.Utilities;
 using asteroids_the_game_clone.Interfaces;
+using System;
 
 namespace asteroids_the_game_clone.GameObjects {
     public class GameObject : IDynamicable {
 		public const int ROTATION_DEGREE = 3;
 
-        private Vec2D position;
+        private Point2D position;
         private short rotation;
-		private short velocity;
+		private double velocity;
 
-        public GameObject(Vec2D position, short rotation, short velocity) {
-            this.position = new Vec2D(position.getCoords().ToArray());
+        public GameObject(Point2D position, short rotation, double velocity) {
+            this.position = new Point2D(position.getCoords().ToArray());
             this.rotation = rotation;
 			this.velocity = velocity;
         }
 
-        public void setPosition(Vec2D position) => this.position = new Vec2D(position.getCoords().ToArray());
-		public Vec2D getPosition() => new Vec2D(
+        public void setPosition(Point2D position) => this.position = new Point2D(position.getCoords().ToArray());
+		public Point2D getPosition() => new Point2D(
 			this.position.getCoords().ToArray()
 		);
 		public void setRotation(short rotation) => this.rotation = rotation;
 		public short getRotation() => this.rotation;
 
-		public void setVelocity(short velocity) => this.velocity = velocity;
-		public short getVelocity() => this.velocity;
+		public void setVelocity(double velocity) => this.velocity = velocity;
+		public double getVelocity() => this.velocity;
 
-        public void moveTo(Vec2D vec) => this.position = new Vec2D(
+        public void moveTo(Point2D vec) => this.position = new Point2D(
 			vec.getX(), vec.getY()
 		);
 
 		public void moveUp() => this.position.setY(
-			this.position.getY() - this.velocity
+			this.position.getY() - (int)Math.Round(this.velocity)
 		);
 
 		public void moveRight() => this.position.setX(
-			this.position.getX() + this.velocity
+			this.position.getX() + (int)Math.Round(this.velocity)
 		);
 
 		public void moveLeft() => this.position.setX(
-			this.position.getX() - this.velocity
+			this.position.getX() - (int)Math.Round(this.velocity)
 		);
 
 		public void moveDown() => this.position.setY(
-			this.position.getY() + this.velocity
+			this.position.getY() + (int)Math.Round(this.velocity)
 		);
 
 		public void rotateRight() => this.rotate(ROTATION_DEGREE);
@@ -93,9 +94,11 @@ namespace asteroids_the_game_clone.GameObjects {
 				x -= this.velocity;
 			}
 
-			Vec2D vec = new Vec2D((int)x, (int)y);
+			Point2D vec = new Point2D((int)Math.Round(x), (int)Math.Round(y));
 			this.moveTo(vec);
 			return;
 		}
+
+        public override string ToString() => "GameObject";
     }
 }

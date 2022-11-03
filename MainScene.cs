@@ -9,16 +9,16 @@ using System.Windows.Forms;
 
 namespace asteroids_the_game_clone {
 	public partial class MainScene : Form {
+		private const int MAX_ASTEROIDS_ONLINE = 5;
+
 		private ComponentResourceManager resources;
 		private Player player = null;
-
-		//private SpaceShip ship = null;
-
 		private SpaceShip ship = null;
-		//private List<GameObject> bullets = new List<GameObject>();
 		private Dictionary<GameObject, PictureBox> gameObjectsMap = new Dictionary<GameObject, PictureBox>();
 		private List<GameObject> deletedObjList = new List<GameObject>();
-		//private SortedList<GameObject, PictureBox> bullets = new SortedList<GameObject, PictureBox>();
+		private int asteroidRespawnTime = 50;
+		private int bulletCooldown = 5;
+		private int asteroidsCount = 0;
 
 		private PictureBox shipPicture = null;
 		private delegate void RotatePic(ref PictureBox pic, float angle, bool isRotationLeft);
@@ -26,6 +26,7 @@ namespace asteroids_the_game_clone {
 		private delegate void UpdateVisualObject(ref PictureBox pic);
 		private UpdateVisualObject updateVisualObj;
 		private Mutex mutexObj;
+		private bool isGameOver = false;
 
 		public MainScene(Player player) {
 			mutexObj = new Mutex();
@@ -44,7 +45,7 @@ namespace asteroids_the_game_clone {
 				(object sender, KeyEventArgs e) => player.removePressedBtn(e.KeyCode)
 			);
 
-			Vec2D pos = new Vec2D(367, 327);
+			Point2D pos = new Point2D(367, 327);
 			ship = new SpaceShip("kefir ship", pos, 0, 1);
 
 			Thread onPlayerKeyStateChange = new Thread(
@@ -64,62 +65,63 @@ namespace asteroids_the_game_clone {
         private void SceneLoad(object sender, EventArgs e) { }
 
 		private void OnEnvironmentUpdate() {
-			while (true) {
+			while (!this.isGameOver) {
 				mutexObj.WaitOne();
+				asteroidRespawnTime--;
 
-				GameObject obj;
-				PictureBox pic;
-				int objectX, objectY;
+				int objectX = 0, objectY = 0;
+				short objectRotation = (short)0;
+				Random rnd = new Random();
 
+				this.addAsteroid(rnd, ref objectX, ref objectY, ref objectRotation);
+
+				GameObject obj, nestedObj;
+				PictureBox pic, nestedPic;
+				Point2D objectPos;
+
+				long count = 0;
 				foreach (KeyValuePair<GameObject, PictureBox> kvp in this.gameObjectsMap) {
+					count++;
 					obj = kvp.Key;
 					pic = kvp.Value;
 
-					objectX = obj.getPosition().getX();
-					objectY = obj.getPosition().getY();
+					objectPos = obj.getPosition(); 
+					objectX = objectPos.getX();
+					objectY = objectPos.getY();
+
+					this.OnGameObjectUpdate(obj, rnd);
+					this.OnGameObjectMovedOutside(obj, pic.Size.Height, objectX, objectY);
+
+					foreach (KeyValuePair<GameObject, PictureBox> nestedKvp in this.gameObjectsMap) {
+						nestedObj = nestedKvp.Key;
+						nestedPic = nestedKvp.Value;
+
+						if (obj.Equals(nestedObj)) {
+							continue;
+                        }
+
+						if (obj.ToString().Equals("SpaceShip") && nestedObj.ToString().Equals("Bullet")
+							|| obj.ToString().Equals("Bullet") && nestedObj.ToString().Equals("SpaceShip")) {
+							continue;
+                        }
+
+						if (Point2D.getDistance(objectPos, nestedObj.getPosition()) > (double)pic.Size.Height) {
+							continue;
+                        }
+
+						Console.WriteLine(obj.ToString() + " cross " + nestedObj.ToString() + " out");
+
+						if (obj.ToString().Equals("SpaceShip") || nestedObj.ToString().Equals("SpaceShip")) {
+							this.isGameOver = true;
+							continue;
+                        }
+
+						this.deletedObjList.Add(obj);
+						this.deletedObjList.Add(nestedKvp.Key);
+					}
 
 					pic.Invoke(
 						new Action(() => {
-							if (!obj.Equals(this.ship)) {
-								obj.moveForwardWithRotation();
-                            }
-
-							if (objectY > this.Size.Height - pic.Size.Height) {
-								if (obj.Equals(this.ship)) {
-									obj.setPosition(
-										new Vec2D(objectX, 0 + pic.Size.Height)
-									);
-								} else {
-									this.deletedObjList.Add(obj);
-                                }
-							} else if (objectY < 0 + pic.Size.Height) {
-								if (obj.Equals(this.ship)) {
-									obj.setPosition(
-										new Vec2D(objectX, this.Size.Height - pic.Size.Height)
-									);
-								} else {
-									this.deletedObjList.Add(obj);
-                                }
-							}
-
-							if (objectX > this.Size.Width - pic.Size.Height) {
-								if (obj.Equals(this.ship)) {
-									obj.setPosition(
-										new Vec2D(0 + pic.Size.Height, objectY)
-									);
-								} else {
-									this.deletedObjList.Add(obj);
-                                }
-							} else if (objectX < 0 + pic.Size.Height) {
-								if (obj.Equals(this.ship)) {
-									obj.setPosition(
-										new Vec2D(this.Size.Width - pic.Size.Height, objectY)
-									);
-								} else {
-									this.deletedObjList.Add(obj);
-                                }
-							}
-
 							pic.Location = new Point(
 								obj.getPosition().getX(),
 								obj.getPosition().getY()
@@ -131,17 +133,133 @@ namespace asteroids_the_game_clone {
 				foreach (GameObject gameObject in this.deletedObjList) {
 					this.gameObjectsMap.TryGetValue(gameObject, out pic);
 					this.gameObjectsMap.Remove(gameObject);
-					pic.Invoke(new Action(() => { pic.Dispose(); }));
+
+					if (gameObject.ToString().Equals("Asteroid")) {
+						this.asteroidsCount--;
+                    }
+
+					if (pic != null) {
+						pic.Invoke(new Action(() => { pic.Dispose(); }));
+					}
 				}
 
 				this.deletedObjList.Clear();
 				Thread.Sleep(10);
 				mutexObj.ReleaseMutex();
 			}
+
+			Application.Exit();
 		}
 
+		private void OnGameObjectMovedOutside(GameObject obj, int picHeight, int objectX, int objectY) {
+			if (objectY > this.Size.Height - picHeight) {
+				if (obj.ToString().Equals("SpaceShip")) {
+					obj.setPosition(
+						new Point2D(objectX, 0 + picHeight)
+					);
+				} else {
+					this.deletedObjList.Add(obj);
+                }
+			} else if (objectY < 0 + picHeight) {
+				if (obj.ToString().Equals("SpaceShip")) {
+					obj.setPosition(
+						new Point2D(objectX, this.Size.Height - picHeight)
+					);
+				} else {
+					this.deletedObjList.Add(obj);
+                }
+			}
+
+			if (objectX > this.Size.Width - picHeight) {
+				if (obj.ToString().Equals("SpaceShip")) {
+					obj.setPosition(
+						new Point2D(0 + picHeight, objectY)
+					);
+				} else {
+					this.deletedObjList.Add(obj);
+                }
+			} else if (objectX < 0 + picHeight) {
+				if (obj.ToString().Equals("SpaceShip")) {
+					obj.setPosition(
+						new Point2D(this.Size.Width - picHeight, objectY)
+					);
+				} else {
+					this.deletedObjList.Add(obj);
+                }
+			}
+        }
+
+		private void OnGameObjectUpdate(GameObject obj, Random rnd) {
+			double objectVelocity = obj.getVelocity();
+
+			if (obj.ToString().Equals("SpaceShip")) {
+				if (objectVelocity <= 1f) {
+					return;
+                }
+
+				obj.setVelocity(objectVelocity - 0.02f);
+            }
+			
+			if (obj.ToString().Equals("Asteroid") && this.asteroidRespawnTime % 25 == 0) {
+				obj.setRotation((short)rnd.Next(0, 360));
+			}
+
+			obj.moveForwardWithRotation();
+        }
+
+		private void addAsteroid(Random rnd, ref int objectX, ref int objectY, ref short objectRotation) {
+			if (this.asteroidsCount >= MAX_ASTEROIDS_ONLINE) {
+				return;
+            }
+
+			if (this.asteroidRespawnTime > 0) {
+				this.asteroidRespawnTime--;
+				return;
+            }
+
+			this.asteroidRespawnTime = 50;
+
+            objectX = rnd.Next(0, this.Size.Width);
+			objectY = rnd.Next(0, this.Size.Height);
+			objectRotation = (short)rnd.Next(0, 360);
+
+			double distanceToShip = Point2D.getDistance(
+				this.ship.getPosition(), new Point2D(objectX, objectY)
+			);
+
+			if (distanceToShip > this.shipPicture.Size.Height) {
+				Asteroid asteroid = new Asteroid(
+					new Point2D(objectX, objectY),
+					objectRotation,
+					1,
+					2
+				);
+				PictureBox asteroidPicture = new PictureBox {
+					Image = (Image)(resources.GetObject("asteroidPicture.Image")),
+					Location = new Point(objectX, objectY),
+					Size = new Size(49, 38),
+					Visible = true,
+					Name = "asteroidPicture"
+				};
+
+				this.rotatePic.Invoke(
+					ref asteroidPicture,
+					(float)asteroid.getRotation(),
+					false
+				);
+				this.Invoke(
+					new Action(() => {
+						this.Controls.Add(asteroidPicture);
+					}
+				));
+
+				this.gameObjectsMap.Add(asteroid, asteroidPicture);
+				this.asteroidsCount++;
+            }
+        }
+
 		private void OnPlayerKeyStateChange() {
-			while (true) {
+			while (!this.isGameOver) {
 				this.mutexObj.WaitOne();
 				if (this.ship == null || this.player == null || this.shipPicture == null) {
 					continue;
@@ -153,36 +271,44 @@ namespace asteroids_the_game_clone {
 					shipY = this.ship.getPosition().getY();
 
 				if (this.player.isButtonPressed(Keys.Space)) {
-					this.ship.shoot();
+					bulletCooldown--;
 
-					GameObject bullet = new GameObject(
-						new Vec2D(shipX, shipY),
-						shipRotation,
-						5
-					);
-                    PictureBox bulletPicture = new PictureBox {
-                        Image = (Image)(resources.GetObject("bulletPicture.Image")),
-                        Location = new Point(shipX, shipY),
-                        Size = new Size(28, 27),
-                        Visible = true,
-						Name = "bulletPicture"
-                    };
+					if (bulletCooldown <= 0) {
+						bulletCooldown = 5;
+						this.ship.shoot();
 
-					this.Invoke(
-						new Action(() => {
-							this.Controls.Add(bulletPicture);
-                        }
-					));
-                    this.gameObjectsMap.Add(bullet, bulletPicture);
+						Bullet bullet = new Bullet(
+							new Point2D(shipX, shipY),
+							shipRotation,
+							5
+						);
+						PictureBox bulletPic = new PictureBox {
+							Image = (Image)(resources.GetObject("bulletPicture.Image")),
+							Location = new Point(shipX, shipY),
+							Size = new Size(28, 27),
+							Visible = true,
+							Name = "bulletPicture"
+						};
 
-					this.rotatePic.Invoke(
-						ref bulletPicture,
-						(float)bullet.getRotation(),
-						false
-					);
+						this.Invoke(
+							new Action(() => {
+								this.Controls.Add(bulletPic);
+							}
+						));
+						this.gameObjectsMap.Add(bullet, bulletPic);
+
+						this.rotatePic.Invoke(
+							ref bulletPic,
+							(float)bullet.getRotation(),
+							false
+						);
+					}
 				}
 
 				if (this.player.isButtonPressed(Keys.Up)) {
+					double shipVelocity = this.ship.getVelocity();
+					double newShipVelocity = shipVelocity >= 2.5f ? 2.5f : shipVelocity + 0.05f;
+
 					if (this.player.isButtonPressed(Keys.Right)) {
 						this.ship.rotateRight();
 
@@ -191,6 +317,8 @@ namespace asteroids_the_game_clone {
 							(float)shipRotation + SpaceShip.ROTATION_DEGREE,
 							false
 						);
+
+						newShipVelocity -= newShipVelocity < 1.05f ? 0f : 0.05f;
 					} else if (this.player.isButtonPressed(Keys.Left)) {
 						this.ship.rotateLeft();
 
@@ -199,9 +327,10 @@ namespace asteroids_the_game_clone {
 							-((float)shipRotation + SpaceShip.ROTATION_DEGREE),
 							true
 						);
+						newShipVelocity -= newShipVelocity < 1.05f ? 0f : 0.05f;
 					}
 
-					this.ship.moveForwardWithRotation();
+					this.ship.setVelocity(newShipVelocity);
 				} else if (this.player.isButtonPressed(Keys.Left)) {
 					this.ship.rotateLeft();
 
@@ -210,6 +339,8 @@ namespace asteroids_the_game_clone {
 						-((float)shipRotation + SpaceShip.ROTATION_DEGREE),
 						true
 					);
+
+					this.ship.setVelocity(1f);
 				} else if (this.player.isButtonPressed(Keys.Right)) {
 					this.ship.rotateRight();
 
@@ -218,6 +349,8 @@ namespace asteroids_the_game_clone {
 						(float)shipRotation + SpaceShip.ROTATION_DEGREE,
 						false
 					);
+
+					this.ship.setVelocity(1f);
 				}
 
 				shipX = this.ship.getPosition().getX();
@@ -225,21 +358,21 @@ namespace asteroids_the_game_clone {
 
 				if (shipY > this.Size.Height - this.shipPicture.Size.Height) {
 					this.ship.setPosition(
-						new Vec2D(shipX, 0 + this.shipPicture.Size.Height)
+						new Point2D(shipX, 0 + this.shipPicture.Size.Height)
 					);
 				} else if (shipY < 0 + this.shipPicture.Size.Height) {
 					this.ship.setPosition(
-						new Vec2D(shipX, this.Size.Height - this.shipPicture.Size.Height)
+						new Point2D(shipX, this.Size.Height - this.shipPicture.Size.Height)
 					);
 				}
 
 				if (shipX > this.Size.Width - this.shipPicture.Size.Height) {
 					this.ship.setPosition(
-						new Vec2D(0 + this.shipPicture.Size.Height, shipY)
+						new Point2D(0 + this.shipPicture.Size.Height, shipY)
 					);
 				} else if (shipX < 0 + this.shipPicture.Size.Height) {
 					this.ship.setPosition(
-						new Vec2D(this.Size.Width - this.shipPicture.Size.Height, shipY)
+						new Point2D(this.Size.Width - this.shipPicture.Size.Height, shipY)
 					);
 				}
 

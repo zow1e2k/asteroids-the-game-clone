@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace asteroids_the_game_clone.Interfaces {
     public interface IDynamicable {
-        void moveTo(Vec2D vec);
+        void moveTo(Point2D vec);
         void moveUp();
         void moveRight();
         void moveLeft();
